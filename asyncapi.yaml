@@ -1,0 +1,103 @@
+asyncapi: 3.0.0
+info:
+  title: FoodLoop Payment Service AsyncAPI
+  version: 1.0.0
+  description: Asynchronous events published by the FoodLoop Payment Service to Kafka.
+servers:
+  kafka-prod:
+    host: kafka.foodloop.local:9092
+    protocol: kafka
+    description: Production Kafka broker
+
+channels:
+  payment.events:
+    address: payment.events
+    messages:
+      PaymentInitiated:
+        $ref: '#/components/messages/PaymentInitiated'
+      PaymentSucceeded:
+        $ref: '#/components/messages/PaymentSucceeded'
+      PaymentFailed:
+        $ref: '#/components/messages/PaymentFailed'
+      PaymentRefunded:
+        $ref: '#/components/messages/PaymentRefunded'
+
+operations:
+  sendPaymentEvents:
+    action: send
+    channel:
+      $ref: '#/channels/payment.events'
+    summary: Publish payment lifecycle events
+    messages:
+      - $ref: '#/components/messages/PaymentInitiated'
+      - $ref: '#/components/messages/PaymentSucceeded'
+      - $ref: '#/components/messages/PaymentFailed'
+      - $ref: '#/components/messages/PaymentRefunded'
+
+components:
+  messages:
+    PaymentInitiated:
+      name: PaymentInitiated
+      title: Payment Initiated Event
+      summary: Emitted when a new payment is created and pending gateway confirmation.
+      payload:
+        $ref: '#/components/schemas/PaymentEventPayload'
+    
+    PaymentSucceeded:
+      name: PaymentSucceeded
+      title: Payment Succeeded Event
+      summary: Emitted when the payment gateway confirms the transaction was successful.
+      payload:
+        $ref: '#/components/schemas/PaymentEventPayload'
+
+    PaymentFailed:
+      name: PaymentFailed
+      title: Payment Failed Event
+      summary: Emitted when the payment is rejected or fails to process.
+      payload:
+        $ref: '#/components/schemas/PaymentEventPayload'
+
+    PaymentRefunded:
+      name: PaymentRefunded
+      title: Payment Refunded Event
+      summary: Emitted when a payment is fully or partially refunded.
+      payload:
+        $ref: '#/components/schemas/PaymentEventPayload'
+
+  schemas:
+    PaymentEventPayload:
+      type: object
+      required:
+        - eventId
+        - paymentId
+        - orderId
+        - status
+        - amount
+        - timestamp
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Unique identifier for the event (used for idempotency on consumer side).
+        paymentId:
+          type: string
+          format: uuid
+          description: The internal ID of the payment.
+        orderId:
+          type: string
+          format: uuid
+          description: The associated order ID.
+        status:
+          type: string
+          enum: [PENDING, SUCCESS, FAILED, REFUNDED]
+          description: The current status of the payment.
+        amount:
+          type: number
+          description: The transaction amount.
+        gatewayTransactionId:
+          type: string
+          description: External provider transaction reference (if applicable).
+        timestamp:
+          type: string
+          format: date-time
+          description: The time the event was generated.
