@@ -1,0 +1,200 @@
+openapi: 3.0.3
+info:
+  title: FoodLoop Payment Service API
+  description: API for managing payments, refunds, and webhooks in the FoodLoop application.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+tags:
+  - name: Payments
+    description: Operations related to processing payments
+  - name: Webhooks
+    description: Operations related to receiving callbacks from payment gateways
+
+paths:
+  /payments:
+    post:
+      summary: Initiate a new payment
+      tags:
+        - Payments
+      operationId: initiatePayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiatePaymentRequest'
+      responses:
+        '201':
+          description: Payment successfully initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          description: Bad request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /payments/{id}/refund:
+    post:
+      summary: Process a refund for a specific payment
+      tags:
+        - Payments
+      operationId: processRefund
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The UUID of the payment to refund
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+      responses:
+        '200':
+          description: Refund successfully processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundResponse'
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Refund not possible (e.g. invalid amount or wrong status)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhooks/stripe:
+    post:
+      summary: Handle incoming Stripe webhook events
+      tags:
+        - Webhooks
+      operationId: handleStripeWebhook
+      parameters:
+        - name: Stripe-Signature
+          in: header
+          required: true
+          description: Stripe webhook signature for verification
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Stripe event payload
+      responses:
+        '200':
+          description: Webhook received and processed successfully
+        '400':
+          description: Invalid signature or payload
+
+components:
+  schemas:
+    InitiatePaymentRequest:
+      type: object
+      required:
+        - orderId
+        - customerId
+        - paymentMethodId
+        - amount
+        - currency
+      properties:
+        orderId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        customerId:
+          type: string
+          format: uuid
+          example: 987e6543-e21b-12d3-a456-426614174000
+        paymentMethodId:
+          type: string
+          format: uuid
+          example: 555e1111-e89b-12d3-a456-426614174000
+        amount:
+          type: number
+          format: float
+          example: 15.50
+        currency:
+          type: string
+          example: USD
+
+    PaymentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 333e4567-e89b-12d3-a456-426614174000
+        status:
+          type: string
+          enum: [PENDING, SUCCESS, FAILED, REFUNDED]
+          example: PENDING
+        gatewayTransactionId:
+          type: string
+          example: pi_3M1xyz2eZvKYlo2C12345678
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-05-20T15:30:00Z'
+
+    RefundRequest:
+      type: object
+      required:
+        - amount
+        - reason
+      properties:
+        amount:
+          type: number
+          format: float
+          example: 15.50
+        reason:
+          type: string
+          example: "Customer requested cancellation"
+
+    RefundResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        paymentId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, SUCCESS, FAILED]
+          example: SUCCESS
+        createdAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Bad Request"
+        message:
+          type: string
+          example: "Invalid payment amount"
+        timestamp:
+          type: string
+          format: date-time
